@@ -72,3 +72,188 @@ public class Team {
 }
 ```
 
+## 다중성 ##
+### 일대일 관계 (One-to-One) ###
+두 엔티티가 서로 1:1로 연결되는 관계
+
+#### 일대일 단방향 ####
+```
+@Entity
+public class Project {
+  @Id @GeneratedValue
+  private Long id;
+
+  @OneToOne
+  @JoinColumn(name = "project_award_id")
+  private ProjectAward projectAward;
+}
+
+@Entity
+public class ProjectAward {
+  @Id @GeneratedValue
+  private Long id;
+
+  private String grade;
+  ...
+}
+```
+
+#### 일대일 양방향 ####
+```
+@Entity
+public class Project {
+  @Id @GeneratedValue
+  private Long id;
+
+  @OneToOne
+  @JoinColumn(name = "project_award_id")
+  private ProjectAward projectAward;
+}
+
+@Entity
+public class ProjectAward {
+  @Id @GeneratedValue
+  private Long id;
+
+  @OneToOne(mappedBy = "projectAward")
+  private Project project;
+
+  private String grade;
+  ...
+}
+```
+
+<br />
+
+### 다대일 관계 (Many-to-One) ###
+여러 개의 엔티티가 하나의 엔티티와 연결되는 관계로 연관 관계의 주체가 '다' 쪽에 있음
+
+#### 다대일 단방향 ####
+```
+// Member 엔티티가 연관 관계의 주체
+@Entity
+public class Member {
+  @Id @GeneratedValue
+  private Long id;
+
+  @ManyToOne
+  @JoinColumn(name = "team_id")
+  private Team team;
+}
+
+@Entity
+public class Team {
+  @Id @GeneratedValue
+  private Long id;
+
+  private String name;
+  ...
+}
+```
+
+#### 다대일 양방향 ####
+```
+// Member 엔티티가 연관 관계의 주체
+@Entity
+public class Member {
+  @Id @GeneratedValue
+  private Long id;
+
+  @ManyToOne
+  @JoinColumn(name = "team_id")
+  private Team team;
+}
+
+@Entity
+public class Team {
+  @Id @GeneratedValue
+  private Long id;
+
+  @OneToMany(mappedBy = "team")
+  private List<Member> members = new ArrayList<>();
+
+  private String name;
+  ...
+}
+```
+<br />
+
+### 다대다 관계 (Many-to-Many) ###
+여러 개의 엔티티가 다수의 엔티티와 연결되는 관계
+
+<b style="color:orange">@JoinTable 어노테이션</b>
+- 두 엔티티 간의 관계를 나타내는 중간 테이블을 정의함
+- 연관 관계의 주체가 되는 엔티티에서 사용함
+- name 속성: 생성할 중간 테이블의 이름을 지정
+- joinColumns 속성: 중간 테이블 입장에서 현재 엔티티를 참조하는 왜래키를 정의함
+- inverseJoinColumns 속성: 중간 테이블 입장에서 반대되는 엔티티를 참조하는 외래키를 정의함
+
+
+
+#### 다대다 단방향 관계 ####
+학생은 수업을 참조하지만, 수업은 학생을 알지 못하는 경우
+```
+@Entity
+public class Student {
+  @Id @GeneratedValue
+  private Long id;
+
+  @ManyToMany
+  @JoinTable(
+    name = "student_course",  // 생성할 중간 테이블 명
+    joinColumns = @JoinColumn(name = "student_id"), // 현재 엔티티의 외래키
+    inverseJoinColumns = @JoinColumn(name = "course_id")  // 반대되는 엔티티의 외래키
+  )
+  private Set<Course> courses = new HashSet<>();
+}
+
+// Course 엔티티는 Student를 참조하지 않음
+@Entity
+public class Course {
+  @Id @GeneratedValue
+  private Long id;
+
+  private String title;
+  ...
+}
+```
+
+#### 다대다 양방향 관계 ####
+```
+@Entity
+public class Student {
+  @Id @GeneratedValue
+  private Long id;
+
+  @ManyToMany
+  @JoinTable(
+    name = "student_course",
+    joinColumns = @JoinColumn(name = "student_id"),
+    inverseJoinColumns = @JoinColumn(name = "course_id")
+  )
+  private Set<Course> courses = new HashSet<>();
+}
+
+@Entity
+public class Course {
+  @Id @GeneratedValue
+  private Long id;
+
+  @ManyToMany(mappedBy = "courses")
+  private Set<Student> students = new HashSet<>();
+
+  private String title;
+  ...  
+}
+```
+
+#### 다대다 관계는 실무에서 피하는 경우가 많음 ####
+JPA에서 사용하기에는 복잡성과 데이터 관리의 어려움으로 인해 실무에서는 피하는 경우가 많음
+
+다대다 관계는 중간 테이블을 통해 구현되지만, 이 구조로 인해 데이터의 중복이 발생할 수 있음
+- 학생과 수업의 관계에서 학생이 여러 수업을 듣고, 수업도 여러 학생을 가질 경우, 중간 테이블에 많은 중복 데이터가 생길 수 있음
+
+또한 관계가 복잡해지면 쿼리가 복잡해지고 대량의 데이터가 존재할 경우, 조인 쿼리가 성능 저하를 일으킬 수 있음
+
+→ 다대다 관계는 두 개의 다대일, 일대다 관계로 분리해서 구현하는 것이 좋음
+- Student와 Course 사이에 Enrollment와 같은 중간 엔티티를 만들어서 학생과 수업 엔티티 간의 관계를 명시적으로 관리할 수 있음
