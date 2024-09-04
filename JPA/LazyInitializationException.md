@@ -2,32 +2,68 @@
 주로 지연 로딩 방식으로 설정된 연관된 엔티티에 접근하려 할 때 발생하는 에러
 
 ```
+@Getter
+@Setter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "member")
 @Entity
 public class Member {
-  @Id
-  private Long id;
-  
-  @OneToMany(mappedBy="member")
-  private List<Order> orders;
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "member_id")
+    private Long id;
+
+    private String name;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id")
+    private Team team;
 }
 
+
+@Getter
+@Setter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "team")
 @Entity
-public class Order {
-  @Id
-  private Long id;
-  
-  @ManyToOne(fetch=FetchType.LAZY)
-  @JoinColumn(name="member_id")
-  private Member member;
+public class Team {
+
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "team_id")
+    private Long id;
+
+    private String name;
+
+    @OneToMany(mappedBy = "team")
+    private List<Member> members = new ArrayList<>();
 }
 
-// 서비스 메서드
-@Transactional
-public void test(Long memberId) {
-	Member member = em.find(Member.class, memberId);
-	em.close();
-	
-	List<Order> orders = member.getOrders();  // LazyInitializationException 발생
+@Service
+public class TestService {
+
+    @PersistenceContext
+    private EntityManager em;
+
+    @Transactional
+    public void lazyInitializationExceptionTest() {
+        Member member = new Member();
+        member.setName("Tom");
+
+        Team team = new Team();
+        team.setName("DevKing");
+
+        em.persist(member);
+        em.persist(team);
+
+        em.flush();
+        em.clear();
+        
+        Member findMember = em.find(Member.class, member.getId());
+        em.close();
+
+        Team findTeam = findMember.getTeam();
+        System.out.println("findTeam.getName() = " + findTeam.getName());  // LazyInitializationException 발생
+    }
 }
 ```
 
@@ -64,49 +100,53 @@ public void test(Long memberId) {
 2. <b style="color:orange">명시적 Fetch Join</b>
 - JPQL에서 JOIN FETCH를 사용해서 필요한 연관 엔티티를 조회하는 방법
 ```
-public List<Member> findMembersWithOrders() {
-  String query = "SELECT m 
-  FROM Member m 
-  JOIN FETCH m.orders";
+public Member findMemberWithTeam(Long memberId) {
+  String query = "SELECT m
+    FROM Member m
+    JOIN FETCH m.team"
+    WHERE m.id = :memberId;
 
-  return em.createQuery(query, Member.class).getResultList();
+  return em.createQuery(query, Member.class)
+    .setParameter("memberId", memberId)
+    .getSingleResult();
 }
 
-// 서비스 메서드
 @Transactional
 public void test(Long memberId) {
-  List<Member> members = findMembersWithOrders();
+  Member findMember = findMemberWithTeam(memberId);
 
-  Member member = members.stream()
-    .filter(m -> m.getId().equals(memberId))
-    .findFirst()
-    .orElse(null);
-
-  List<Order> orders = member.getOrders();
+  Team findTeam = findMember.getTeam();
+  System.out.println("findTeam.getName() = " + findTeam.getName());
 }
 ```
 
 3. <b style="color:orange">DTO 사용</b> (권장 O)
 - 연관 관계가 설정된 엔티티를 미리 조회하고 트랜잭션이 종료되는 시점에 리턴 타입으로 DTO로 변환하는 방법
 ```
+@Getter
+@AllArgsConstructor
 public class MemberDTO {
   private Long id;
-  private List<OrderDTO> orders;
+  private String name;
+  private TeamDTO teamDTO;
 }
 
-public class OrderDTO {
+@Getter
+@AllArgsConstructor
+public class TeamDTO {
   private Long id;
+  private String name;
 }
 
 // 서비스 메서드
 @Transactional
-public MemberDTO getMemberWithOrders(Long memberId) {
-  Member member = em.find(Member.class, memberId);
+public MemberDTO getMemberWithTeam(Long memberId) {
+  Member findMember = em.find(Member.class, memberId);
 
-  List<OrderDTO> orderDTOs = member.getOrders().stream()
-    .map(order -> new OrderDTO(order.getId()))
-    .collect(Collectors.toList());
+  Team findTeam = findMember.getTeam();
 
-  return new MemberDTO(member.getId(), orderDTOs);
+  TeamDTO teamDTO = new TeamDTO(findTeam.getId(), findTeam.getName());
+
+  return new MemberDTO(findMember.getId(), findMember.getName(), teamDTO);
 }
 ```
