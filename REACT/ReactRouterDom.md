@@ -153,3 +153,114 @@ const Home = () => {
 
 export default Home;
 ```
+
+
+### Outlet ###
+react-router-dom에서 중첩 라우팅을 구현할 때 사용하는 컴포넌트로, 부모 라우트에서 정의한 하위 라우트를 렌더링할 수 있는 위치를 지정할 수 있음
+
+Outlet은 특정 페이지들에서 공통으로 보여줄 레이아웃이 있을때 유용하게 사용할 수 있음
+
+#### 중첩 라우팅 ####
+- Outlet은 부모 라우트에서 하위 라우트를 렌더링 할 수 있게 해줌
+- 공통된 레이아웃을 유지하면서 다른 페이지를 표시할 수 있음
+
+#### 동적 렌더링 ####
+- 부모 라우트의 경로에 따라 하위 컴포넌트를 동적으로 렌더링 할 수 있음
+
+<br />
+
+<b>Outlet 예시 코드</b>
+1. 상위 라우트 정의
+```
+import { Outlet } from 'react-router-dom';
+
+const Layout = () => {
+	return (
+		<div>
+			<Header />
+			<Outlet />	{/* 하위 라우트가 이 자리에 렌더링 됨 */}
+			<Footer />
+		</div>
+	);
+}
+
+export default Layout;
+```
+
+2. 하위 라우트 정의
+```
+import { Routes, Route } from 'react-router-dom';
+
+const App = () => {
+	return (
+		<Routes>
+			<Route path='/' element={<Layout />}>
+				<Route index element={<Home />} />  {/* 기본 페이지 */}
+				<Route path='/about' element={<About />} />
+			</Route>
+		</Routes>
+	);
+}
+
+export default App;
+```
+
+<br />
+<br />
+
+<b>동작 방식</b>
+- 사용자가 / 경로에 접근하면 Layout 컴포넌트가 렌더링 되고, Outlet 위치에 Home 컴포넌트가 표시됨
+- 사용자가 /about 경로에 접근하면 Layout 컴포넌트가 렌더링 되고, Outlet 위치에 About 컴포넌트가 표시됨
+- Layout의 헤더와 푸터는 항상 유지되며, 중간 내용만 변경됨
+
+<br /> 
+
+<b>장점</b>
+- 공통 레이아웃을 쉽게 재사용 할 수 있어 중복된 코드를 줄일 수 있음
+- 다양한 페이지에서 동일한 레이아웃을 사용할 수 있어 유연한 UI 구성이 가능함
+
+<br />
+<br />
+
+<b>작성한 코드</b>
+
+App.js
+```
+import './App.css';
+import { Routes, Route } from 'react-router-dom';
+import SignUp from './sign/sign-up/SignUp';
+import SignIn from './sign/sign-in/SignIn';
+import TodoContainer from './todo/TodoContainer';
+import Footer from './nav/Footer';
+
+const App = () => {
+  return (
+    <div className="App" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+			<Routes>
+				<Route path='/' element={<Footer />}>
+					<Route index element={<TodoContainer />} />
+					<Route path='/sign-up' element={<SignUp />} />
+					<Route path='/sign-in' element={<SignIn />} />
+				</Route>
+			</Routes>
+		</div>
+  );
+}
+
+export default App;
+```
+
+Footer.js
+```
+import { Outlet } from 'react-router-dom';
+import BottomNavBar from './BottonNavBar';
+
+const Footer = () => {
+	<Outlet />
+	<div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+		<BottomNavBar />
+	</div>
+}
+
+export default Footer;
+```
